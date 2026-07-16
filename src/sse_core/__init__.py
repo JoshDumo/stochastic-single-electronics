@@ -9,8 +9,9 @@ __version__ = "1.0.0"
 from sse_core.compiler.builder import SSECompiler
 
 # We will expose the GillespieSolver here in Phase 3!
-# from sse_core.solvers.gillespie import GillespieSolver
+from sse_core.solvers.gillespie import GillespieSolver
 
 __all__ = [
     "SSECompiler",
+    "GillespieSolver",
 ]
