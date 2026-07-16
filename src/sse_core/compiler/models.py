@@ -1,7 +1,7 @@
 # src/sse_core/compiler/models.py
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 
 # Simulation Block
@@ -33,18 +33,14 @@ class SimulationConfig(BaseModel):
         description="Physical thermal voltage (V_th = kT/e) in Volts.",
     )
 
-    @field_validator("time_step")
-    @classmethod
-    def validate_time_step_necessity(cls, v: float | None, info) -> float | None:
+    @model_validator(mode="after")
+    def validate_time_step_necessity(self) -> "SimulationConfig":
         """Enforces that time_step is provided if the tau_leaping solver is selected."""
-        values = info.data
-        solver = values.get("solver")
-
-        if solver == "tau_leaping" and v is None:
+        if self.solver == "tau_leaping" and self.time_step is None:
             raise ValueError(
-                "Parameter 'time_step' is strictly required when using the 'tau_leaping' solver."
+                "ERR_CFG_002: Parameter 'time_step' is strictly required when using the 'tau_leaping' solver."
             )
-        return v
+        return self
 
 
 # Node Directory Schema
@@ -92,25 +88,25 @@ class RegulatedNodeConfig(BaseModel):
         if self.type == "ground":
             if self.value is not None or self.specs is not None:
                 raise ValueError(
-                    f"Regulated node '{self.name}' of type 'ground' cannot accept custom values or specs."
+                    f"ERR_CFG_003: Regulated node '{self.name}' of type 'ground' cannot accept custom values or specs."
                 )
         elif self.type == "constant":
             if self.value is None:
                 raise ValueError(
-                    f"Constant source '{self.name}' requires a 'value' field."
+                    f"ERR_CFG_002: Constant source '{self.name}' requires a 'value' field."
                 )
             if self.specs is not None:
                 raise ValueError(
-                    f"Constant source '{self.name}' cannot accept 'specs' fields."
+                    f"ERR_CFG_003: Constant source '{self.name}' cannot accept 'specs' fields."
                 )
         elif self.type == "sinusoidal":
             if self.specs is None:
                 raise ValueError(
-                    f"Sinusoidal source '{self.name}' requires a 'specs' configuration block."
+                    f" ERR_CFG_002: Sinusoidal source '{self.name}' requires a 'specs' configuration block."
                 )
             if self.value is not None:
                 raise ValueError(
-                    f"Sinusoidal source '{self.name}' cannot accept a static 'value' field."
+                    f"ERR_CFG_003: Sinusoidal source '{self.name}' cannot accept a static 'value' field."
                 )
         return self
 
@@ -137,7 +133,7 @@ class NodeDirectory(BaseModel):
         intersection = free_names.intersection(regulated_names)
         if intersection:
             raise ValueError(
-                f"Name collision detected! The following node name(s) are defined in "
+                f"ERR_NET_103: Name collision detected! The following node name(s) are defined in "
                 f"both free and regulated directories: {intersection}"
             )
         return self
@@ -238,34 +234,45 @@ class ComponentConfig(BaseModel):
         if c_type in ["capacitor", "tunnel_junction", "diode"]:
             if not isinstance(self.terminals, list) or len(self.terminals) != 2:
                 raise ValueError(
-                    f"Component '{self.name}' [type={c_type}] must provide a list of exactly 2 terminals."
+                    f"ERR_CFG_003: Component '{self.name}' [type={c_type}] must provide a list of exactly 2 terminals."
                 )
 
-            # Re-parse raw specs dict into concrete structural sub-models
-            if c_type == "capacitor":
-                CapacitorSpecs(**self.specs)
-            elif c_type == "tunnel_junction":
-                TunnelJunctionSpecs(**self.specs)
-            elif c_type == "diode":
-                DiodeSpecs(**self.specs)
+            # Wrap specs initialization in try/except to prepend diagnostic codes
+            try:
+                if c_type == "capacitor":
+                    self.specs = CapacitorSpecs(**self.specs).model_dump()
+                elif c_type == "tunnel_junction":
+                    self.specs = TunnelJunctionSpecs(**self.specs).model_dump()
+                elif c_type == "diode":
+                    self.specs = DiodeSpecs(**self.specs).model_dump()
+            except ValidationError as e:
+                # Catch internal constraints (like gt=0.0) and map to our system code
+                raise ValueError(
+                    f"ERR_CFG_001: Invalid spec parameters for component '{self.name}' [type={c_type}]. Details: {e}"
+                ) from e
 
         # --- Handle Four-Terminal Configurations (MOSFETs) ---
         elif c_type in ["n_channel_mosfet", "p_channel_mosfet"]:
             if not isinstance(self.terminals, MOSFETTerminals):
                 raise ValueError(
-                    f"Component '{self.name}' [type={c_type}] requires a structured terminal mapping block "
-                    f"defining 'drain', 'gate', 'source', and 'bulk'."
+                    f"ERR_CFG_003: Component '{self.name}' [type={c_type}] requires a structured terminal mapping block."
                 )
 
-            # Parse parameters and verify specific physical warnings
-            m_specs = MOSFETSpecs(**self.specs)
-            if c_type == "n_channel_mosfet" and m_specs.VT < 0.0:
+            try:
+                parsed_mos = MOSFETSpecs(**self.specs)
+                self.specs = parsed_mos.model_dump()
+            except ValidationError as e:
                 raise ValueError(
-                    f"nMOSFET '{self.name}' has an unphysical negative threshold voltage (VT={m_specs.VT})."
+                    f"ERR_CFG_001: Invalid spec parameters for MOSFET '{self.name}'. Details: {e}"
+                ) from e
+
+            if c_type == "n_channel_mosfet" and parsed_mos.VT < 0.0:
+                raise ValueError(
+                    f"ERR_CFG_004: nMOSFET '{self.name}' has an unphysical negative threshold voltage (VT={parsed_mos.VT})."
                 )
-            if c_type == "p_channel_mosfet" and m_specs.VT > 0.0:
+            if c_type == "p_channel_mosfet" and parsed_mos.VT > 0.0:
                 raise ValueError(
-                    f"pMOSFET '{self.name}' has an unphysical positive threshold voltage (VT={m_specs.VT})."
+                    f"ERR_CFG_004: pMOSFET '{self.name}' has an unphysical positive threshold voltage (VT={parsed_mos.VT})."
                 )
 
         return self
