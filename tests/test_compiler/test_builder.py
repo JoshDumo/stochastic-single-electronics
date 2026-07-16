@@ -1,7 +1,7 @@
 # tests/test_compiler/test_builder.py
 import numpy as np
 import pytest
-from sse_core.compiler.builder import SSEMatrixBuilder
+from sse_core.compiler.builder import SSECompiler, SSEMatrixBuilder
 from sse_core.compiler.parser import SSEParser
 
 
@@ -90,3 +90,27 @@ def test_builder_raises_err_math_201_on_singular_matrix():
     with pytest.raises(ValueError) as exc_info:
         builder.assemble()
     assert "ERR_MATH_201" in str(exc_info.value)
+
+
+def test_compiler_end_to_end_orchestration():
+    """Verify that SSECompiler correctly orchestrates parsing, linting, and building."""
+    valid_yaml = """
+    schema_version: "1.0.0"
+    simulation: {solver: "gillespie", t_finish: 1e-6}
+    nodes:
+      free: [{"name": "out"}]
+      regulated: [{"name": "gnd", "type": "ground"}]
+    components:
+      - type: "capacitor"
+        name: "C1"
+        terminals: ["out", "gnd"]
+        specs: {capacitance: 1e-15}
+      - type: "tunnel_junction"
+        name: "TJ1"
+        terminals: ["out", "gnd"]
+        specs: {resistance: 1e5}
+    """
+    # Compile in a single call!
+    assembly = SSECompiler.compile_string(valid_yaml)
+    assert assembly.free_names == ["out"]
+    assert np.allclose(assembly.C_inv, np.array([[1e15]]))

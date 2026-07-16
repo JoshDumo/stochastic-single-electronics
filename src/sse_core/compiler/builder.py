@@ -2,7 +2,9 @@
 from dataclasses import dataclass
 
 import numpy as np
+from sse_core.compiler.linter import SSETopologyLinter
 from sse_core.compiler.models import MOSFETTerminals
+from sse_core.compiler.parser import CircuitNetlist, SSEParser
 
 
 @dataclass
@@ -136,3 +138,48 @@ class SSEMatrixBuilder:
             dV_precomputed=dV_precomputed,
             device_terminals=device_terminals,
         )
+
+
+# Orchestrator
+# -------------
+
+
+class SSECompiler:
+    """
+    The main user-facing compiler API. Coordinates parsing,
+    topological linting, and matrix assembly in a single call.
+    """
+
+    @staticmethod
+    def compile_string(yaml_content: str) -> CompiledAssembly:
+        """
+        Compiles a raw YAML string into a numerical circuit assembly.
+
+        Raises:
+            ValidationError: If the YAML schema is invalid.
+            ValueError: If topological lint checks or matrix calculations fail.
+        """
+        # 1. Parse YAML to AST
+        netlist: CircuitNetlist = SSEParser.parse_string(yaml_content)
+
+        # 2. Run Topological Linter
+        linter = SSETopologyLinter(netlist)
+        errors = linter.lint()
+        if errors:
+            formatted_errors = "\n".join(f"  - {err}" for err in errors)
+            raise ValueError(
+                f"ERR_NET_100: Topological linting failed with the following errors:\n{formatted_errors}"
+            )
+
+        # 3. Assemble and return numerical matrices
+        builder = SSEMatrixBuilder(netlist)
+        return builder.assemble()
+
+    @classmethod
+    def compile_file(cls, file_path: str) -> CompiledAssembly:
+        """
+        Reads a YAML file from disk and compiles it.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return cls.compile_string(content)
