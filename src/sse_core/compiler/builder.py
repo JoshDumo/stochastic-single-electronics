@@ -5,6 +5,7 @@ import numpy as np
 from sse_core.compiler.linter import SSETopologyLinter
 from sse_core.compiler.models import MOSFETTerminals
 from sse_core.compiler.parser import CircuitNetlist, SSEParser
+from sse_core.compiler.units import SI_UNITS
 
 
 @dataclass
@@ -63,7 +64,8 @@ class SSEMatrixBuilder:
                 node_a_name, node_b_name = comp.terminals
                 idx_a = self.name_to_idx[node_a_name]
                 idx_b = self.name_to_idx[node_b_name]
-                cap_val = comp.specs["capacitance"]
+                raw_cap = comp.specs["capacitance"]
+                cap_val = raw_cap / SI_UNITS.c_scale
 
                 M[idx_a, idx_a] += cap_val
                 M[idx_b, idx_b] += cap_val

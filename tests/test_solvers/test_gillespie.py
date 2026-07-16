@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from sse_core.compiler.builder import SSECompiler
 from sse_core.compiler.parser import SSEParser
+from sse_core.compiler.units import E_CHARGE, SI_UNITS
 from sse_core.solvers.gillespie import GillespieSolver
 
 
@@ -129,8 +130,15 @@ def test_electrostatic_energy_calculation():
 
     # Total capacitance C_sigma = C1 + C2 = 2.0 fF.
     # Energy U = 0.5 * Q^2 / C_sigma = 0.5 * 1 / 2e-15 = 2.5e14 J
-    energy = solver.compute_electrostatic_energy(q, vr)
-    assert energy == pytest.approx(2.5e14)
+    scaled_energy = solver.compute_electrostatic_energy(q, vr)
+
+    # Scale back up to physical SI Joules:
+    # Since Q has scale factor E_CHARGE, and energy scales with Q^2 / C,
+    # we multiply the dimensionless energy by the squared charge scale factor
+    # and divide by the capacitance scale factor.
+    physical_energy = (scaled_energy * (E_CHARGE**2)) / SI_UNITS.c_scale
+
+    assert physical_energy == pytest.approx(6.4174e-24, rel=1e-4)
 
 
 def test_gillespie_max_steps_guard():

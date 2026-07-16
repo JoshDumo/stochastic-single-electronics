@@ -47,10 +47,10 @@ def test_builder_correct_assembly_and_inversion():
     assert assembly.regulated_names == ["gnd", "vdd"]
 
     # C_inv: 1 / 5e-15 = 2e14
-    assert np.allclose(assembly.C_inv, np.array([[2.0e14]]))
+    assert np.allclose(assembly.C_inv, np.array([[0.0012395]]), rtol=1e-4)
 
     # Cx: [-2e-15, -3e-15]
-    assert np.allclose(assembly.Cx, np.array([[-2.0e-15, -3.0e-15]]))
+    assert np.allclose(assembly.Cx, np.array([[-322.71098, -484.06647]]), rtol=1e-4)
 
     # Verify Incidence Matrix (free_Delta)
     # TJ1 goes from 'out' (idx 0, free) to 'gnd' (idx 1, regulated).
@@ -64,7 +64,7 @@ def test_builder_correct_assembly_and_inversion():
 
     # Verify precomputed voltage delta dV_precomputed:
     # delta_V = C_inv * delta = 2e14 * 1.0 = 2e14 V
-    assert np.allclose(assembly.dV_precomputed, np.array([2.0e14]))
+    assert np.allclose(assembly.dV_precomputed, np.array([0.0012395]), rtol=1e-4)
 
 
 def test_builder_raises_err_math_201_on_singular_matrix():
@@ -113,4 +113,4 @@ def test_compiler_end_to_end_orchestration():
     # Compile in a single call!
     assembly = SSECompiler.compile_string(valid_yaml)
     assert assembly.free_names == ["out"]
-    assert np.allclose(assembly.C_inv, np.array([[1e15]]))
+    assert np.allclose(assembly.C_inv, np.array([[0.0061975]]), rtol=1e-4)

@@ -5,6 +5,7 @@ import numpy as np
 from numba import njit
 from sse_core.compiler.builder import CompiledAssembly
 from sse_core.compiler.parser import CircuitNetlist
+from sse_core.compiler.units import E_CHARGE, SI_UNITS
 from sse_core.devices.passive import TunnelJunction
 from sse_core.devices.semiconductor import MOSFET, Diode
 
@@ -60,9 +61,12 @@ class GillespieSolver:
         for comp in active_comps:
             v_th = self.netlist.simulation.v_th
             if comp.type == "tunnel_junction":
-                dev = TunnelJunction(comp.name, v_th, comp.specs["resistance"])
+                r_dim = comp.specs["resistance"] / SI_UNITS.r_scale
+                dev = TunnelJunction(comp.name, v_th, r_dim)
             elif comp.type == "diode":
-                dev = Diode(comp.name, v_th, comp.specs["I0"], comp.specs["n"])
+                # I0_dim = I0_SI / ( [Q] / [t] )
+                i0_dim = comp.specs["I0"] / (E_CHARGE / SI_UNITS.tau_scale)
+                dev = Diode(comp.name, v_th, i0_dim, comp.specs["n"])
             elif comp.type in ["n_channel_mosfet", "p_channel_mosfet"]:
                 is_pmos = comp.type == "p_channel_mosfet"
                 dev = MOSFET(
