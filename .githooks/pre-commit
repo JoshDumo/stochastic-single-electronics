@@ -1,0 +1,22 @@
+#!/bin/sh
+# .githooks/pre-commit
+echo "=== Running pre-commit validation gates ==="
+
+# 1. Run Ruff Formatter & Linter
+echo "Running Ruff..."
+ruff format --check src/ tests/ && ruff check src/ tests/
+if [ $? -ne 0 ]; then
+    echo "❌ Ruff checks failed. Commit aborted."
+    exit 1
+fi
+
+# 2. Run Mypy Static Type Checker
+echo "Running Mypy..."
+mypy src/
+if [ $? -ne 0 ]; then
+    echo "❌ Mypy static type verification failed. Commit aborted."
+    exit 1
+fi
+
+echo "✅ All local gate checks passed. Committing changes."
+exit 0
