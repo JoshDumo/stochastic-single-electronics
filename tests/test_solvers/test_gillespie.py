@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from sse_core.compiler.builder import SSECompiler
 from sse_core.compiler.parser import SSEParser
 from sse_core.solvers.gillespie import GillespieSolver
@@ -99,3 +100,34 @@ def test_gillespie_coulomb_blockade_stable_regime():
     # excess charge does not wander wildly and stays tightly bounded.
     final_charge = history["charge"][-1, 0]
     assert final_charge in [-1, 0, 1]
+
+
+def test_electrostatic_energy_calculation():
+    """Verify that the computed electrostatic energy matches theoretical predictions."""
+    yaml_circuit = """
+    schema_version: "1.0.0"
+    simulation: {solver: "gillespie", t_finish: 1.0e-6}
+    nodes:
+      free: [{"name": "out"}]
+      regulated: [{"name": "gnd", "type": "ground"}]
+    components:
+      - type: "capacitor"
+        name: "C1"
+        terminals: ["out", "gnd"]
+        specs: {capacitance: 1.0e-15}
+      - type: "capacitor"
+        name: "C2"
+        terminals: ["out", "gnd"]
+        specs: {capacitance: 1.0e-15}
+    """
+    assembly = SSECompiler.compile_string(yaml_circuit)
+    parsed_netlist = SSEParser.parse_string(yaml_circuit)
+    solver = GillespieSolver(parsed_netlist, assembly)
+
+    q = np.array([-1])  # 1 excess electron
+    vr = np.array([0.0])
+
+    # Total capacitance C_sigma = C1 + C2 = 2.0 fF.
+    # Energy U = 0.5 * Q^2 / C_sigma = 0.5 * 1 / 2e-15 = 2.5e14 J
+    energy = solver.compute_electrostatic_energy(q, vr)
+    assert energy == pytest.approx(2.5e14)

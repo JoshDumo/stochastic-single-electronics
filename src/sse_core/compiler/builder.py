@@ -18,6 +18,7 @@ class CompiledAssembly:
     regulated_names: list[str]
     C_inv: np.ndarray  # Inverse of free capacitance matrix (Nf x Nf)
     Cx: np.ndarray  # Free-to-regulated mutual capacitance matrix (Nf x Nr)
+    Cr: np.ndarray  # Regulated-to-regulated capacitance matrix (Nr x Nr)
     free_Delta: np.ndarray  # Reduced incidence matrix for active devices (Nf x Nd)
     dV_precomputed: np.ndarray  # Voltage change offset across devices per jump (Nd,)
     device_terminals: list[
@@ -71,6 +72,7 @@ class SSEMatrixBuilder:
 
         C = M[0 : self.Nf, 0 : self.Nf]
         Cx = M[0 : self.Nf, self.Nf : self.N]
+        Cr = M[self.Nf : self.N, self.Nf : self.N]  # <--- Extract Cr block
 
         try:
             if np.linalg.cond(C) > 1 / np.finfo(float).eps:
@@ -121,7 +123,6 @@ class SSEMatrixBuilder:
             # Represents the voltage jump across this device's terminals when it fires.
             if self.Nf > 0:
                 delta_column = free_Delta[:, d]
-                # delta_V_free = C_inv * delta_column
                 dV_free = C_inv @ delta_column
 
                 # Get potentials at terminal nodes (treating regulated potentials as fixed 0V for delta check)
@@ -134,6 +135,7 @@ class SSEMatrixBuilder:
             regulated_names=self.regulated_names,
             C_inv=C_inv,
             Cx=Cx,
+            Cr=Cr,  # <--- Added to assembly
             free_Delta=free_Delta,
             dV_precomputed=dV_precomputed,
             device_terminals=device_terminals,

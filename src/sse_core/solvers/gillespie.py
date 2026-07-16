@@ -150,8 +150,12 @@ class GillespieSolver:
     ) -> dict[str, Any]:
         t = 0.0
         q = initial_charge_vector.copy().astype(np.int64)
+
+        # Track time, charge, and energy histories
         history_t = [t]
         history_q = [q.copy()]
+        history_e = [self.compute_electrostatic_energy(q, vr_potentials)]
+
         current_potentials = self.compute_node_potentials(q, vr_potentials)
         history_v: dict[str, list[float]] = {
             name: [val] for name, val in current_potentials.items()
@@ -163,6 +167,7 @@ class GillespieSolver:
                 t = self.t_finish
                 history_t.append(t)
                 history_q.append(q.copy())
+                history_e.append(self.compute_electrostatic_energy(q, vr_potentials))
                 for name, val in current_potentials.items():
                     history_v[name].append(val)
                 break
@@ -171,6 +176,8 @@ class GillespieSolver:
 
             history_t.append(t)
             history_q.append(q.copy())
+            history_e.append(self.compute_electrostatic_energy(q, vr_potentials))
+
             current_potentials = self.compute_node_potentials(q, vr_potentials)
             for name, val in current_potentials.items():
                 history_v[name].append(val)
@@ -178,5 +185,44 @@ class GillespieSolver:
         return {
             "time": np.array(history_t),
             "charge": np.array(history_q),
+            "energy": np.array(history_e),  # <--- Added energy history tracking!
             "potentials": {name: np.array(vals) for name, vals in history_v.items()},
         }
+
+    def compute_electrostatic_energy(self, q: np.ndarray, vr: np.ndarray) -> float:
+        """
+        Computes the total electrostatic energy of the circuit state.
+
+        Formula:
+            U = 0.5 * q^T @ C_inv @ q - q^T @ C_inv @ Cx @ Vr + 0.5 * Vr^T @ (Cr - Cx^T @ C_inv @ Cx) @ Vr
+        """
+        q_f = q.astype(np.float64)
+        vr_f = vr.astype(np.float64)
+
+        term1 = 0.0
+        term2 = 0.0
+        term3 = 0.0
+
+        n_free = len(self.assembly.free_names)
+        n_regulated = len(self.assembly.regulated_names)
+
+        if n_free > 0:
+            c_inv_q = self.assembly.C_inv @ q_f
+            term1 = 0.5 * np.dot(q_f, c_inv_q)
+
+            if n_regulated > 0:
+                cx_vr = self.assembly.Cx @ vr_f
+                term2 = -np.dot(q_f, self.assembly.C_inv @ cx_vr)
+
+        if n_regulated > 0:
+            if n_free > 0:
+                cx_t_c_inv_cx = (
+                    self.assembly.Cx.T @ self.assembly.C_inv @ self.assembly.Cx
+                )
+                schur_cap = self.assembly.Cr - cx_t_c_inv_cx
+            else:
+                schur_cap = self.assembly.Cr
+
+            term3 = 0.5 * np.dot(vr_f, schur_cap @ vr_f)
+
+        return float(term1 + term2 + term3)
