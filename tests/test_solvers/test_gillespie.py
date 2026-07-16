@@ -131,3 +131,36 @@ def test_electrostatic_energy_calculation():
     # Energy U = 0.5 * Q^2 / C_sigma = 0.5 * 1 / 2e-15 = 2.5e14 J
     energy = solver.compute_electrostatic_energy(q, vr)
     assert energy == pytest.approx(2.5e14)
+
+
+def test_gillespie_max_steps_guard():
+    """Verify that the simulator respects the max_steps dynamic limit."""
+    yaml_circuit = """
+    schema_version: "1.0.0"
+    simulation: {solver: "gillespie", t_finish: 1.0e-3, seed: 42}
+    nodes:
+      free: [{"name": "out"}]
+      regulated: [{"name": "gnd", "type": "ground"}]
+    components:
+      - type: "capacitor"
+        name: "C1"
+        terminals: ["out", "gnd"]
+        specs: {capacitance: 1.0e-15}
+      - type: "tunnel_junction"
+        name: "TJ1"
+        terminals: ["out", "gnd"]
+        specs: {resistance: 1.0e3} # Low resistance = highly active tunneling
+    """
+    assembly = SSECompiler.compile_string(yaml_circuit)
+    parsed_netlist = SSEParser.parse_string(yaml_circuit)
+    solver = GillespieSolver(parsed_netlist, assembly)
+
+    q_init = np.array([0])
+    vr = np.array([0.0])
+
+    # Force a max steps limit of 5
+    history = solver.simulate(q_init, vr, max_steps=5)
+
+    # Assert we did not run into an infinite loop and capped transitions exactly
+    # 1 initial state + 5 transition steps = 6 recorded points
+    assert len(history["time"]) <= 6

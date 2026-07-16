@@ -146,8 +146,23 @@ class GillespieSolver:
         return updated_q, tau
 
     def simulate(
-        self, initial_charge_vector: np.ndarray, vr_potentials: np.ndarray
+        self,
+        initial_charge_vector: np.ndarray,
+        vr_potentials: np.ndarray,
+        max_steps: int = 100000,
     ) -> dict[str, Any]:
+        """
+        Executes the full stochastic time-evolution loop from t = 0 to t_finish
+        with dynamic termination guards.
+
+        Parameters:
+            initial_charge_vector: Starting excess charge array (Nf,)
+            vr_potentials: Potentials on regulated nodes (Nr,)
+            max_steps: Safeguard limit on the total number of simulated events.
+
+        Returns:
+            A dictionary containing recorded arrays.
+        """
         t = 0.0
         q = initial_charge_vector.copy().astype(np.int64)
 
@@ -161,8 +176,15 @@ class GillespieSolver:
             name: [val] for name, val in current_potentials.items()
         }
 
+        step = 0
         while t < self.t_finish:
+            if step >= max_steps:
+                # Dynamic guard: Stop simulation if we exceed maximum step limit
+                break
+
             q_next, dt = self.execute_step(q, vr_potentials)
+
+            # Dynamic guard: If we freeze-out (dt >= t_finish), terminate early
             if dt >= self.t_finish:
                 t = self.t_finish
                 history_t.append(t)
@@ -171,9 +193,12 @@ class GillespieSolver:
                 for name, val in current_potentials.items():
                     history_v[name].append(val)
                 break
+
             t += dt
             q = q_next
+            step += 1
 
+            # Record transition snapshots
             history_t.append(t)
             history_q.append(q.copy())
             history_e.append(self.compute_electrostatic_energy(q, vr_potentials))
@@ -185,7 +210,7 @@ class GillespieSolver:
         return {
             "time": np.array(history_t),
             "charge": np.array(history_q),
-            "energy": np.array(history_e),  # <--- Added energy history tracking!
+            "energy": np.array(history_e),
             "potentials": {name: np.array(vals) for name, vals in history_v.items()},
         }
 
