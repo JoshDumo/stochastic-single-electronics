@@ -34,3 +34,6 @@ dev = [
 [[tool.mypy.overrides]]
 module = "h5py.*"
 ignore_missing_imports = true
+
+[project.scripts]
+sse-export = "sse_core.solvers.export_cli:run_export_cli"
