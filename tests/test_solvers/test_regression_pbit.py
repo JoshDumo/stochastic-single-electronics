@@ -24,8 +24,6 @@ nodes:
     - name: "vss"
       type: "constant"
       value: -0.0286
-    - name: "gnd"
-      type: "ground"
 components:
   # NODE 3 CAPACITORS (Gate of Inv1 + Output of Inv2)
   - type: "capacitor"

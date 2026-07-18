@@ -19,7 +19,7 @@ def test_gillespie_single_step_execution():
       seed: 42
     nodes:
       free: [{"name": "out"}]
-      regulated: [{"name": "gnd", "type": "ground"}]
+      regulated: [{"name": "gnd", "type": "constant", "value": 0.0}]
     components:
       - type: "capacitor"
         name: "C1"
@@ -73,7 +73,8 @@ def test_gillespie_coulomb_blockade_stable_regime():
           type: "constant"
           value: 0.02   # V_gate = 20 mV
         - name: "gnd"
-          type: "ground"
+          type: "constant"
+          value: 0.0
     components:
       - type: "capacitor"
         name: "Cg"
@@ -110,7 +111,7 @@ def test_electrostatic_energy_calculation():
     simulation: {solver: "gillespie", t_finish: 1.0e-6}
     nodes:
       free: [{"name": "out"}]
-      regulated: [{"name": "gnd", "type": "ground"}]
+      regulated: [{"name": "gnd", "type": "constant", "value": 0.0}]
     components:
       - type: "capacitor"
         name: "C1"
@@ -148,7 +149,7 @@ def test_gillespie_max_steps_guard():
     simulation: {solver: "gillespie", t_finish: 1.0e-3, seed: 42}
     nodes:
       free: [{"name": "out"}]
-      regulated: [{"name": "gnd", "type": "ground"}]
+      regulated: [{"name": "gnd", "type": "constant", "value": 0.0}]
     components:
       - type: "capacitor"
         name: "C1"

@@ -26,8 +26,6 @@ def test_example_inverter_gaussian_distribution_regression():
         - name: "vss"
           type: "constant"
           value: -0.115
-        - name: "gnd"
-          type: "ground"
     components:
       # These represent the load of the NEXT inverter stage
       - type: "capacitor"

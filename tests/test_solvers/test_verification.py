@@ -32,7 +32,8 @@ def test_thermodynamic_laws_conservation():
           type: "constant"
           value: 0.2
         - name: "gnd"
-          type: "ground"
+          type: "constant"
+          value: 0.0
     components:
       - type: "capacitor"
         name: "Cg"
@@ -65,7 +66,7 @@ def test_thermodynamic_laws_conservation():
     assert audit["discrepancy"] == pytest.approx(0.0, abs=1e-5)
 
     # Assert Second Law: Total dissipation is non-negative
-    assert verify_second_law(history, assembly, vr) is True
+    assert verify_second_law(history, assembly, vr)
 
     # Assert Charge Flux Balance matches transition history!
-    assert verify_charge_flux_conservation(history, assembly) is True
+    assert verify_charge_flux_conservation(history, assembly)

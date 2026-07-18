@@ -7,9 +7,6 @@ from sse_core.compiler.parser import SSEParser
 # =============================================================================
 # HAPPY PATH TEST
 # =============================================================================
-# =============================================================================
-# HAPPY PATH TEST
-# =============================================================================
 def test_parser_valid_minimal_netlist():
     """Verify that a standard valid YAML string parses using constant 0V references."""
     valid_yaml = """
@@ -111,7 +108,8 @@ def test_parser_err_cfg_002_missing_parameter(missing_param_yaml, expected_err):
 # ERR_CFG_003: Illegal parameter configuration (Repurposed)
 # =============================================================================
 def test_parser_err_cfg_003_illegal_constant_specs():
-    """Verify constant nodes with illegal specifications (like specs blocks) trigger ERR_CFG_003."""
+    # Pass frequency and amplitude so Pydantic parses it successfully,
+    # then our validator will see type="constant" and raise ERR_CFG_003
     invalid_yaml = """
     schema_version: "1.0.0"
     simulation: {solver: "gillespie", t_finish: 1e-6}
@@ -121,10 +119,10 @@ def test_parser_err_cfg_003_illegal_constant_specs():
         - name: "vdd"
           type: "constant"
           value: 1.0
-          specs: {amplitude: 1.0} # <--- Illegal: constant sources cannot have specs
+          specs: {amplitude: 1.0, frequency: 60.0} # Valid SinusoidalSpecs, but invalid for 'constant'
     components: []
     """
-    with pytest.raises(ValidationError) as exc_info:
+    with pytest.raises(ValueError) as exc_info:  # Changed to ValueError
         SSEParser.parse_string(invalid_yaml)
     assert "ERR_CFG_003" in str(exc_info.value)
 

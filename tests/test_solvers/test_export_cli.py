@@ -19,7 +19,7 @@ def test_sse_export_cli_writes_correct_tabular_files(tmp_path):
     simulation: {solver: "gillespie", t_finish: 1.0e-9, seed: 42}
     nodes:
       free: [{"name": "island"}]
-      regulated: [{"name": "gnd", "type": "ground"}]
+      regulated: [{"name": "gnd", "type": "constant", "value": 0.0}]
     components:
       - type: "capacitor"
         name: "C1"
