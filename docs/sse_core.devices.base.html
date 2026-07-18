@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Python: module sse_core.devices.base</title>
+</head><body>
+
+<table class="heading">
+<tr class="heading-text decor">
+<td class="title">&nbsp;<br><strong class="title"><a href="sse_core.html" class="white">sse_core</a>.<a href="sse_core.devices.html" class="white">devices</a>.base</strong></td>
+<td class="extra"><a href=".">index</a><br><a href="file:/home/josh/projects/stochastic_thermodynamics/SSE_V2/sse_simulator/src/sse_core/devices/base.py">/home/josh/projects/stochastic_thermodynamics/SSE_V2/sse_simulator/src/sse_core/devices/base.py</a></td></tr></table>
+    <p><span class="code">#&nbsp;src/sse_core/devices/base.py</span></p>
+<p>
+<table class="section">
+<tr class="decor index-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Classes</strong></td></tr>
+    
+<tr><td class="decor index-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><dl>
+<dt class="heading-text"><a href="abc.html#ABC">abc.ABC</a>(<a href="builtins.html#object">builtins.object</a>)
+</dt><dd>
+<dl>
+<dt class="heading-text"><a href="sse_core.devices.base.html#TwoTerminalDevice">TwoTerminalDevice</a>
+</dt></dl>
+</dd>
+</dl>
+ <p>
+<table class="section">
+<tr class="decor title-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><a name="TwoTerminalDevice">class <strong>TwoTerminalDevice</strong></a>(<a href="abc.html#ABC">abc.ABC</a>)</td></tr>
+    
+<tr><td class="decor title-decor" rowspan=2><span class="code">&nbsp;&nbsp;&nbsp;</span></td>
+<td class="decor title-decor" colspan=2><span class="code"><a href="#TwoTerminalDevice">TwoTerminalDevice</a>(name:&nbsp;str,&nbsp;v_th:&nbsp;float)<br>
+&nbsp;<br>
+Abstract&nbsp;Base&nbsp;Class&nbsp;establishing&nbsp;the&nbsp;programmatic&nbsp;contract&nbsp;for&nbsp;all<br>
+stochastic&nbsp;charge-transfer&nbsp;elements&nbsp;in&nbsp;the&nbsp;simulator.<br>&nbsp;</span></td></tr>
+<tr><td>&nbsp;</td>
+<td class="singlecolumn"><dl><dt>Method resolution order:</dt>
+<dd><a href="sse_core.devices.base.html#TwoTerminalDevice">TwoTerminalDevice</a></dd>
+<dd><a href="abc.html#ABC">abc.ABC</a></dd>
+<dd><a href="builtins.html#object">builtins.object</a></dd>
+</dl>
+<hr>
+Methods defined here:<br>
+<dl><dt><a name="TwoTerminalDevice-__init__"><strong>__init__</strong></a>(self, name: str, v_th: float)</dt><dd><span class="code">Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</span></dd></dl>
+
+<dl><dt><a name="TwoTerminalDevice-forward_rate"><strong>forward_rate</strong></a>(self, v_active: float, v_control: float = 0.0) -&gt; float</dt><dd><span class="code">Calculate&nbsp;and&nbsp;return&nbsp;the&nbsp;forward&nbsp;transition&nbsp;rate&nbsp;(lambda_f)&nbsp;in&nbsp;Hz.<br>
+&nbsp;<br>
+Parameters:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;v_active:&nbsp;Voltage&nbsp;difference&nbsp;across&nbsp;the&nbsp;primary&nbsp;active&nbsp;terminals.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;v_control:&nbsp;Secondary&nbsp;control&nbsp;potential&nbsp;(e.g.,&nbsp;Gate-Source&nbsp;voltage).</span></dd></dl>
+
+<dl><dt><a name="TwoTerminalDevice-reverse_rate"><strong>reverse_rate</strong></a>(self, v_active: float, v_control: float = 0.0) -&gt; float</dt><dd><span class="code">Calculate&nbsp;and&nbsp;return&nbsp;the&nbsp;reverse&nbsp;transition&nbsp;rate&nbsp;(lambda_r)&nbsp;in&nbsp;Hz.</span></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><span class="code">dictionary&nbsp;for&nbsp;instance&nbsp;variables</span></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><span class="code">list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object</span></dd>
+</dl>
+<hr>
+Data and other attributes defined here:<br>
+<dl><dt><strong>__abstractmethods__</strong> = frozenset({'forward_rate', 'reverse_rate'})</dl>
+
+</td></tr></table></td></tr></table>
+</body></html>

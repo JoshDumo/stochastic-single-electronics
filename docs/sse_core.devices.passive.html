@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Python: module sse_core.devices.passive</title>
+</head><body>
+
+<table class="heading">
+<tr class="heading-text decor">
+<td class="title">&nbsp;<br><strong class="title"><a href="sse_core.html" class="white">sse_core</a>.<a href="sse_core.devices.html" class="white">devices</a>.passive</strong></td>
+<td class="extra"><a href=".">index</a><br><a href="file:/home/josh/projects/stochastic_thermodynamics/SSE_V2/sse_simulator/src/sse_core/devices/passive.py">/home/josh/projects/stochastic_thermodynamics/SSE_V2/sse_simulator/src/sse_core/devices/passive.py</a></td></tr></table>
+    <p><span class="code">#&nbsp;src/sse_core/devices/passive.py</span></p>
+<p>
+<table class="section">
+<tr class="decor pkg-content-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Modules</strong></td></tr>
+    
+<tr><td class="decor pkg-content-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><table><tr><td class="multicolumn"><a href="numpy.html">numpy</a><br>
+</td><td class="multicolumn"></td><td class="multicolumn"></td><td class="multicolumn"></td></tr></table></td></tr></table><p>
+<table class="section">
+<tr class="decor index-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Classes</strong></td></tr>
+    
+<tr><td class="decor index-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><dl>
+<dt class="heading-text"><a href="sse_core.devices.base.html#TwoTerminalDevice">sse_core.devices.base.TwoTerminalDevice</a>(<a href="abc.html#ABC">abc.ABC</a>)
+</dt><dd>
+<dl>
+<dt class="heading-text"><a href="sse_core.devices.passive.html#TunnelJunction">TunnelJunction</a>
+</dt></dl>
+</dd>
+</dl>
+ <p>
+<table class="section">
+<tr class="decor title-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><a name="TunnelJunction">class <strong>TunnelJunction</strong></a>(<a href="sse_core.devices.base.html#TwoTerminalDevice">sse_core.devices.base.TwoTerminalDevice</a>)</td></tr>
+    
+<tr><td class="decor title-decor" rowspan=2><span class="code">&nbsp;&nbsp;&nbsp;</span></td>
+<td class="decor title-decor" colspan=2><span class="code"><a href="#TunnelJunction">TunnelJunction</a>(name:&nbsp;str,&nbsp;v_th:&nbsp;float,&nbsp;resistance:&nbsp;float)<br>
+&nbsp;<br>
+A&nbsp;passive&nbsp;single-electron&nbsp;tunnel&nbsp;junction&nbsp;with&nbsp;a&nbsp;discrete&nbsp;tunneling&nbsp;barrier.<br>&nbsp;</span></td></tr>
+<tr><td>&nbsp;</td>
+<td class="singlecolumn"><dl><dt>Method resolution order:</dt>
+<dd><a href="sse_core.devices.passive.html#TunnelJunction">TunnelJunction</a></dd>
+<dd><a href="sse_core.devices.base.html#TwoTerminalDevice">sse_core.devices.base.TwoTerminalDevice</a></dd>
+<dd><a href="abc.html#ABC">abc.ABC</a></dd>
+<dd><a href="builtins.html#object">builtins.object</a></dd>
+</dl>
+<hr>
+Methods defined here:<br>
+<dl><dt><a name="TunnelJunction-__init__"><strong>__init__</strong></a>(self, name: str, v_th: float, resistance: float)</dt><dd><span class="code">Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</span></dd></dl>
+
+<dl><dt><a name="TunnelJunction-forward_rate"><strong>forward_rate</strong></a>(self, v_active: float, v_control: float = 0.0) -&gt; float</dt><dd><span class="code">Calculate&nbsp;and&nbsp;return&nbsp;the&nbsp;forward&nbsp;transition&nbsp;rate&nbsp;(lambda_f)&nbsp;in&nbsp;Hz.<br>
+&nbsp;<br>
+Parameters:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;v_active:&nbsp;Voltage&nbsp;difference&nbsp;across&nbsp;the&nbsp;primary&nbsp;active&nbsp;terminals.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;v_control:&nbsp;Secondary&nbsp;control&nbsp;potential&nbsp;(e.g.,&nbsp;Gate-Source&nbsp;voltage).</span></dd></dl>
+
+<dl><dt><a name="TunnelJunction-reverse_rate"><strong>reverse_rate</strong></a>(self, v_active: float, v_control: float = 0.0) -&gt; float</dt><dd><span class="code">Calculate&nbsp;and&nbsp;return&nbsp;the&nbsp;reverse&nbsp;transition&nbsp;rate&nbsp;(lambda_r)&nbsp;in&nbsp;Hz.</span></dd></dl>
+
+<hr>
+Data and other attributes defined here:<br>
+<dl><dt><strong>__abstractmethods__</strong> = frozenset()</dl>
+
+<hr>
+Data descriptors inherited from <a href="sse_core.devices.base.html#TwoTerminalDevice">sse_core.devices.base.TwoTerminalDevice</a>:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><span class="code">dictionary&nbsp;for&nbsp;instance&nbsp;variables</span></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><span class="code">list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object</span></dd>
+</dl>
+</td></tr></table></td></tr></table><p>
+<table class="section">
+<tr class="decor functions-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Functions</strong></td></tr>
+    
+<tr><td class="decor functions-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><dl><dt><a name="-tunnel_junction_rates"><strong>tunnel_junction_rates</strong></a>(v_active: float, r_tunnel: float, v_th: float) -&gt; tuple[float, float]</dt><dd><span class="code">JIT-compiled&nbsp;rate&nbsp;calculation&nbsp;for&nbsp;a&nbsp;single&nbsp;tunnel&nbsp;junction.<br>
+Regulates&nbsp;the&nbsp;singularity&nbsp;at&nbsp;0V&nbsp;using&nbsp;a&nbsp;minor&nbsp;numerical&nbsp;offset.</span></dd></dl>
+</td></tr></table><p>
+<table class="section">
+<tr class="decor data-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Data</strong></td></tr>
+    
+<tr><td class="decor data-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><strong>E_CHARGE</strong> = 1.602176634e-19</td></tr></table>
+</body></html>

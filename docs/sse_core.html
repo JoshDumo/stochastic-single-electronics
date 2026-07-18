@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Python: package sse_core</title>
+</head><body>
+
+<table class="heading">
+<tr class="heading-text decor">
+<td class="title">&nbsp;<br><strong class="title">sse_core</strong> (version 1.0.0)</td>
+<td class="extra"><a href=".">index</a><br><a href="file:/home/josh/projects/stochastic_thermodynamics/SSE_V2/sse_simulator/src/sse_core/__init__.py">/home/josh/projects/stochastic_thermodynamics/SSE_V2/sse_simulator/src/sse_core/__init__.py</a></td></tr></table>
+    <p><span class="code">SSE&nbsp;Core:&nbsp;A&nbsp;High-Performance&nbsp;Stochastic&nbsp;Single&nbsp;Electronics&nbsp;Simulator.</span></p>
+<p>
+<table class="section">
+<tr class="decor pkg-content-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Package Contents</strong></td></tr>
+    
+<tr><td class="decor pkg-content-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><table><tr><td class="multicolumn"><a href="sse_core.devices.html"><strong>devices</strong>&nbsp;(package)</a><br>
+</td><td class="multicolumn"></td><td class="multicolumn"></td><td class="multicolumn"></td></tr></table></td></tr></table><p>
+<table class="section">
+<tr class="decor index-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Classes</strong></td></tr>
+    
+<tr><td class="decor index-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><dl>
+<dt class="heading-text"><a href="builtins.html#object">builtins.object</a>
+</dt><dd>
+<dl>
+<dt class="heading-text"><a href="sse_core.compiler.builder.html#SSECompiler">sse_core.compiler.builder.SSECompiler</a>
+</dt><dt class="heading-text"><a href="sse_core.solvers.gillespie.html#GillespieSolver">sse_core.solvers.gillespie.GillespieSolver</a>
+</dt></dl>
+</dd>
+</dl>
+ <p>
+<table class="section">
+<tr class="decor title-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><a name="GillespieSolver">class <strong>GillespieSolver</strong></a>(<a href="builtins.html#object">builtins.object</a>)</td></tr>
+    
+<tr><td class="decor title-decor" rowspan=2><span class="code">&nbsp;&nbsp;&nbsp;</span></td>
+<td class="decor title-decor" colspan=2><span class="code"><a href="#GillespieSolver">GillespieSolver</a>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;netlist:&nbsp;sse_core.compiler.parser.CircuitNetlist,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;assembly:&nbsp;sse_core.compiler.builder.CompiledAssembly<br>
+)<br>
+&nbsp;<br>
+Stochastic&nbsp;single-electronics&nbsp;time-evolution&nbsp;simulator&nbsp;operating<br>
+natively&nbsp;in&nbsp;the&nbsp;SI&nbsp;domain&nbsp;(Volts,&nbsp;Joules,&nbsp;Amperes,&nbsp;Seconds).<br>&nbsp;</span></td></tr>
+<tr><td>&nbsp;</td>
+<td class="singlecolumn">Methods defined here:<br>
+<dl><dt><a name="GillespieSolver-__init__"><strong>__init__</strong></a>(
+    self,
+    netlist: sse_core.compiler.parser.CircuitNetlist,
+    assembly: sse_core.compiler.builder.CompiledAssembly
+)</dt><dd><span class="code">Initialize&nbsp;self.&nbsp;&nbsp;See&nbsp;help(type(self))&nbsp;for&nbsp;accurate&nbsp;signature.</span></dd></dl>
+
+<dl><dt><a name="GillespieSolver-compute_all_rates"><strong>compute_all_rates</strong></a>(self, potentials: dict[str, float]) -&gt; tuple[numpy.ndarray, numpy.ndarray, float]</dt></dl>
+
+<dl><dt><a name="GillespieSolver-compute_electrostatic_energy"><strong>compute_electrostatic_energy</strong></a>(self, q: numpy.ndarray, vr: numpy.ndarray) -&gt; float</dt></dl>
+
+<dl><dt><a name="GillespieSolver-compute_node_potentials"><strong>compute_node_potentials</strong></a>(self, q: numpy.ndarray, vr: numpy.ndarray) -&gt; dict[str, float]</dt></dl>
+
+<dl><dt><a name="GillespieSolver-execute_step"><strong>execute_step</strong></a>(self, q: numpy.ndarray, vr: numpy.ndarray) -&gt; tuple[numpy.ndarray, float]</dt></dl>
+
+<dl><dt><a name="GillespieSolver-simulate"><strong>simulate</strong></a>(
+    self,
+    q_init: numpy.ndarray,
+    vr: numpy.ndarray,
+    max_steps: int = 200000
+) -&gt; dict[str, typing.Any]</dt></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><span class="code">dictionary&nbsp;for&nbsp;instance&nbsp;variables</span></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><span class="code">list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object</span></dd>
+</dl>
+</td></tr></table> <p>
+<table class="section">
+<tr class="decor title-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><a name="SSECompiler">class <strong>SSECompiler</strong></a>(<a href="builtins.html#object">builtins.object</a>)</td></tr>
+    
+<tr><td class="decor title-decor" rowspan=2><span class="code">&nbsp;&nbsp;&nbsp;</span></td>
+<td class="decor title-decor" colspan=2><span class="code">The&nbsp;main&nbsp;user-facing&nbsp;compiler&nbsp;API.&nbsp;Coordinates&nbsp;parsing,<br>
+topological&nbsp;linting,&nbsp;and&nbsp;matrix&nbsp;assembly&nbsp;in&nbsp;a&nbsp;single&nbsp;call.<br>&nbsp;</span></td></tr>
+<tr><td>&nbsp;</td>
+<td class="singlecolumn">Class methods defined here:<br>
+<dl><dt><a name="SSECompiler-compile_file"><strong>compile_file</strong></a>(file_path: str) -&gt; sse_core.compiler.builder.CompiledAssembly</dt><dd><span class="code">Reads&nbsp;a&nbsp;YAML&nbsp;file&nbsp;from&nbsp;disk&nbsp;and&nbsp;compiles&nbsp;it.</span></dd></dl>
+
+<hr>
+Static methods defined here:<br>
+<dl><dt><a name="SSECompiler-compile_string"><strong>compile_string</strong></a>(yaml_content: str) -&gt; sse_core.compiler.builder.CompiledAssembly</dt><dd><span class="code">Compiles&nbsp;a&nbsp;raw&nbsp;YAML&nbsp;string&nbsp;into&nbsp;a&nbsp;numerical&nbsp;circuit&nbsp;assembly.<br>
+&nbsp;<br>
+Raises:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ValidationError:&nbsp;If&nbsp;the&nbsp;YAML&nbsp;schema&nbsp;is&nbsp;invalid.<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ValueError:&nbsp;If&nbsp;topological&nbsp;lint&nbsp;checks&nbsp;or&nbsp;matrix&nbsp;calculations&nbsp;fail.</span></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><span class="code">dictionary&nbsp;for&nbsp;instance&nbsp;variables</span></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><span class="code">list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object</span></dd>
+</dl>
+</td></tr></table></td></tr></table><p>
+<table class="section">
+<tr class="decor data-decor heading-text">
+<td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Data</strong></td></tr>
+    
+<tr><td class="decor data-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
+<td class="singlecolumn"><strong>__all__</strong> = ['SSECompiler', 'GillespieSolver']</td></tr></table>
+</body></html>
