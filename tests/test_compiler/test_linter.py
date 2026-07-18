@@ -15,7 +15,8 @@ def test_linter_passes_valid_circuit():
         - name: "out"
       regulated:
         - name: "gnd"
-          type: "ground"
+          type: "constant"
+          value: 0.0
         - name: "vdd"
           type: "constant"
           value: 1.0
@@ -35,26 +36,30 @@ def test_linter_passes_valid_circuit():
     assert len(errors) == 0
 
 
-def test_linter_catches_missing_ground_err_net_104():
-    """Verify linter catches absence of a ground reference."""
-    no_gnd_yaml = """
+def test_linter_catches_missing_reference_err_net_104():
+    """Verify linter catches absence of ANY regulated reference node."""
+    no_ref_yaml = """
     schema_version: "1.0.0"
     simulation: {solver: "gillespie", t_finish: 1e-6}
     nodes:
       free:
         - name: "n1"
         - name: "n2"
-      regulated: []
+      regulated: []  # No reference potential defined
     components:
       - type: "capacitor"
         name: "C1"
         terminals: ["n1", "n2"]
         specs: {capacitance: 1e-15}
     """
-    netlist = SSEParser.parse_string(no_gnd_yaml)
+    netlist = SSEParser.parse_string(no_ref_yaml)
     linter = SSETopologyLinter(netlist)
     errors = linter.lint()
+
+    # We look for the same ERR_NET_104, just with updated messaging
+    # to reflect that any reference node is acceptable
     assert any("ERR_NET_104" in err for err in errors)
+    assert "regulated node" in "".join(errors).lower()
 
 
 def test_linter_catches_dangling_terminal_err_net_101():
@@ -67,7 +72,8 @@ def test_linter_catches_dangling_terminal_err_net_101():
         - name: "out"
       regulated:
         - name: "gnd"
-          type: "ground"
+          type: "constant"
+          value: 0.0
     components:
       - type: "capacitor"
         name: "C1"

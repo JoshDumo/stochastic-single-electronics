@@ -27,18 +27,18 @@ class SSETopologyLinter:
         errors: list[str] = []
 
         # Run individual rule checks
-        self._check_ground_exists(errors)
+
+        self._check_reference_exists(errors)
         self._check_terminals_and_connectivity(errors)
 
         return errors
 
-    def _check_ground_exists(self, errors: list[str]) -> None:
-        """Rule ERR_NET_104: Enforce at least one reference ground."""
-        has_ground = any(node.type == "ground" for node in self.netlist.nodes.regulated)
-        if not has_ground:
+    def _check_reference_exists(self, errors: list[str]) -> None:
+        """Rule ERR_NET_104: Enforce at least one regulated (fixed potential) node."""
+        if not self.netlist.nodes.regulated:
             errors.append(
-                "ERR_NET_104: No ground reference node detected. "
-                "The circuit must declare at least one regulated node of type 'ground'."
+                "ERR_NET_104: No regulated node detected. "
+                "The circuit must declare at least one regulated node to provide a voltage reference."
             )
 
     def _check_terminals_and_connectivity(self, errors: list[str]) -> None:
