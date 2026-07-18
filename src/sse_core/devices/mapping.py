@@ -20,12 +20,21 @@ def extract_device_voltages(
     elif isinstance(comp.terminals, MOSFETTerminals):
         # Four-terminal devices (MOSFET)
         terms: MOSFETTerminals = comp.terminals
-        v_drain = node_potentials.get(terms.drain, 0.0)
-        v_gate = node_potentials.get(terms.gate, 0.0)
-        v_source = node_potentials.get(terms.source, 0.0)
+
+        # Use standard access (no default 0.0) so it raises KeyError if missing
+        try:
+            v_drain = node_potentials[terms.drain]
+            v_gate = node_potentials[terms.gate]
+            v_source = node_potentials[terms.source]
+        except KeyError as e:
+            raise KeyError(
+                f"Terminal {e} not found in node_potentials! Available: {list(node_potentials.keys())}"
+            )
 
         v_active = v_drain - v_source
         v_control = v_gate - v_source
+        return v_active, v_control
+
     else:
         raise TypeError(
             f"Unknown terminal configuration type for component '{comp.name}'."

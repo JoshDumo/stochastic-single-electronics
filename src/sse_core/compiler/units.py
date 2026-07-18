@@ -1,41 +1,41 @@
 # src/sse_core/compiler/units.py
 from dataclasses import dataclass
 
-# Physical constants in SI
-E_CHARGE = 1.602176634e-19  # [Q] Elementary charge in Coulombs
-K_BOLTZMANN = 1.380649e-23  # Boltzmann constant in J/K
+# Absolute physical constants
+E_CHARGE = 1.602176634e-19  # Elementary charge [C]
+K_BOLTZMANN = 1.380649e-23  # Boltzmann constant [J/K]
 
 
 @dataclass
 class UnitSystem:
-    """
-    Manages dimensionless scaling factors.
-    Uses room temperature (300 K) as the default reference thermal voltage scale.
-    """
-
-    T: float = 300.0  # Reference temperature in Kelvin
-    tau_scale: float = 1e-12  # Time scale [t] set to 1 ps (fast tunneling regime)
+    T: float = 300.0  # Reference temperature [Kelvin]
+    tau_scale: float = 1e-12  # Reference time scale [seconds] (1 ps)
 
     @property
     def v_scale(self) -> float:
-        """Voltage scale [V] = k_B * T / e (~25.85 mV at 300 K)"""
+        """Voltage Scale [V] = k_B * T / e (~25.85 mV at 300 K)"""
         return (K_BOLTZMANN * self.T) / E_CHARGE
 
     @property
     def c_scale(self) -> float:
-        """Capacitance scale [C] = [Q] / [V]"""
+        """Capacitance Scale [C] = [Q] / [V]"""
         return E_CHARGE / self.v_scale
 
     @property
     def r_scale(self) -> float:
-        """Resistance scale [R] = [V] * [t] / [Q]"""
+        """Resistance Scale [R] = [V] * [t] / [Q]"""
         return (self.v_scale * self.tau_scale) / E_CHARGE
 
     @property
+    def current_scale(self) -> float:
+        """Current Scale [I] = [Q] / [t]"""
+        return E_CHARGE / self.tau_scale
+
+    @property
     def energy_scale(self) -> float:
-        """Energy scale [E] = [Q] * [V]"""
+        """Energy Scale [E] = [Q] * [V] = k_B * T"""
         return E_CHARGE * self.v_scale
 
 
-# Global default unit system
+# Global package-wide unit registry
 SI_UNITS = UnitSystem()

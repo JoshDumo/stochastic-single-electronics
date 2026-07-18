@@ -2,6 +2,7 @@
 import numpy as np
 from numba import njit
 
+from sse_core.compiler.units import E_CHARGE
 from sse_core.devices.base import TwoTerminalDevice
 
 
@@ -13,7 +14,7 @@ def tunnel_junction_rates(
     JIT-compiled rate calculation for a single tunnel junction.
     Regulates the singularity at 0V using a minor numerical offset.
     """
-    qe = 1.0
+    qe = E_CHARGE
     # Guard against 0V singularity by shifting slightly if v_active is exactly 0
     v_reg = v_active if abs(v_active) > 1e-12 else 1e-12
 

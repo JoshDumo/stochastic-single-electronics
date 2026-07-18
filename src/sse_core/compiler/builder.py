@@ -3,9 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from sse_core.compiler.linter import SSETopologyLinter
-from sse_core.compiler.models import MOSFETTerminals
 from sse_core.compiler.parser import CircuitNetlist, SSEParser
-from sse_core.compiler.units import SI_UNITS
 
 
 @dataclass
@@ -38,7 +36,9 @@ class SSEMatrixBuilder:
 
         # Index lookup maps
         self.free_names = [node.name for node in netlist.nodes.free]
-        self.regulated_names = [node.name for node in netlist.nodes.regulated]
+        self.regulated_names = [
+            node.name for node in netlist.nodes.regulated if node.name != "gnd"
+        ]
 
         self.all_names = self.free_names + self.regulated_names
         self.name_to_idx = {name: idx for idx, name in enumerate(self.all_names)}
@@ -49,32 +49,55 @@ class SSEMatrixBuilder:
 
     def assemble(self) -> CompiledAssembly:
         """
-        Builds, partitions, and compiles the system matrices and active device incidence graphs.
-
-        Raises:
-            ValueError: If the free capacitance matrix C is singular (ERR_MATH_201).
+        Builds the capacitance matrix using MNA rules.
+        It isolates regulated nodes and filters the ground reference to
+        ensure the capacitance matrix C is non-singular and physically grounded.
         """
-        # =====================================================================
-        # 1. Compile Capacitance Matrices
-        # =====================================================================
+        # 1. Identify ground index to exclude it from the C matrix inversion
+        gnd_idx = self.name_to_idx.get("gnd", -1)
+
+        # Initialize full system matrix (N x N)
         M = np.zeros((self.N, self.N))
 
+        # 2. Capacitance Matrix Compilation (Stamp capacitors)
         for comp in self.netlist.components:
             if comp.type == "capacitor":
-                node_a_name, node_b_name = comp.terminals
-                idx_a = self.name_to_idx[node_a_name]
-                idx_b = self.name_to_idx[node_b_name]
-                raw_cap = comp.specs["capacitance"]
-                cap_val = raw_cap / SI_UNITS.c_scale
+                nodes = comp.terminals
 
-                M[idx_a, idx_a] += cap_val
-                M[idx_b, idx_b] += cap_val
-                M[idx_a, idx_b] -= cap_val
-                M[idx_b, idx_a] -= cap_val
+                # Check if these strings are actually in your map
+                idx_a = self.name_to_idx.get(nodes[0])
+                idx_b = self.name_to_idx.get(nodes[1])
 
+                if idx_a is None or idx_b is None:
+                    print(f"DEBUG ERROR: Node mapping failed for {nodes}")
+                    continue
+
+                idx_a = self.name_to_idx[nodes[0]]
+                idx_b = self.name_to_idx[nodes[1]]
+                cap_val = comp.specs["capacitance"]
+
+                # 1. Self-capacitance stamps:
+                # If node is active, add to its diagonal.
+                # If node is ground (gnd_idx), we do nothing for that diagonal.
+                if idx_a != gnd_idx:
+                    M[idx_a, idx_a] += cap_val
+                if idx_b != gnd_idx:
+                    M[idx_b, idx_b] += cap_val
+
+                # 2. Cross-coupling terms:
+                # If both are active, apply the -val stamp.
+                # If ONE is ground, the other is connected to the reference,
+                # so it contributes to the self-capacitance (already handled above),
+                # but NOT to the off-diagonal coupling matrix Cx.
+                if idx_a != gnd_idx and idx_b != gnd_idx:
+                    M[idx_a, idx_b] -= cap_val
+                    M[idx_b, idx_a] -= cap_val
+
+        # 3. Partition Matrix
+        # C = Floating Nodes Only (index 0 to Nf-1)
         C = M[0 : self.Nf, 0 : self.Nf]
         Cx = M[0 : self.Nf, self.Nf : self.N]
-        Cr = M[self.Nf : self.N, self.Nf : self.N]  # <--- Extract Cr block
+        Cr = M[self.Nf : self.N, self.Nf : self.N]
 
         try:
             if np.linalg.cond(C) > 1 / np.finfo(float).eps:
@@ -90,57 +113,55 @@ class SSEMatrixBuilder:
         # 2. Compile Active Device Incidence Matrix (free_Delta)
         # =====================================================================
         # Identify active components
+
+        # 4. Compile Active Device Incidence Matrix (free_Delta)
         active_comps = [
-            comp
-            for comp in self.netlist.components
-            if comp.type
+            c
+            for c in self.netlist.components
+            if c.type
             in ["tunnel_junction", "n_channel_mosfet", "p_channel_mosfet", "diode"]
         ]
         Nd = len(active_comps)
-
         free_Delta = np.zeros((self.Nf, Nd))
-        device_terminals: list[tuple[int, int]] = []
+        device_terminals = []
         dV_precomputed = np.zeros(Nd)
 
         for d, comp in enumerate(active_comps):
-            # Extract charge-transfer terminals (A -> target, B -> source)
-            if comp.type in ["tunnel_junction", "diode"]:
-                node_a_name, node_b_name = comp.terminals
-            else:  # MOSFETs: charge transfer happens between drain and source
-                terminals: MOSFETTerminals = comp.terminals
-                node_a_name = terminals.drain
-                node_b_name = terminals.source
+            idx_drain = self.name_to_idx[
+                comp.terminals.drain
+                if hasattr(comp.terminals, "drain")
+                else comp.terminals[0]
+            ]
+            idx_source = self.name_to_idx[
+                comp.terminals.source
+                if hasattr(comp.terminals, "source")
+                else comp.terminals[1]
+            ]
 
-            idx_a = self.name_to_idx[node_a_name]
-            idx_b = self.name_to_idx[node_b_name]
-            device_terminals.append((idx_a, idx_b))
+            device_terminals.append((idx_drain, idx_source))
 
-            # Populate the reduced incidence matrix columns (if nodes are free)
-            if idx_a < self.Nf:
-                free_Delta[idx_a, d] = 1.0
-            if idx_b < self.Nf:
-                free_Delta[idx_b, d] = -1.0
+            # Electron tunneling direction (standard positive = A to B)
+            if idx_drain < self.Nf:
+                free_Delta[idx_drain, d] += 1.0
+            if idx_source < self.Nf:
+                free_Delta[idx_source, d] -= 1.0
 
-            # Compute the precalculated voltage step: delta_V = C_inv * delta_free
-            # Represents the voltage jump across this device's terminals when it fires.
+            # Compute dV jump across the device terminals
             if self.Nf > 0:
-                delta_column = free_Delta[:, d]
-                dV_free = C_inv @ delta_column
-
-                # Get potentials at terminal nodes (treating regulated potentials as fixed 0V for delta check)
-                v_a = dV_free[idx_a] if idx_a < self.Nf else 0.0
-                v_b = dV_free[idx_b] if idx_b < self.Nf else 0.0
+                dV_free = C_inv @ free_Delta[:, d]
+                v_a = dV_free[idx_drain] if idx_drain < self.Nf else 0.0
+                v_b = dV_free[idx_source] if idx_source < self.Nf else 0.0
                 dV_precomputed[d] = v_a - v_b
 
         return CompiledAssembly(
-            free_names=self.free_names,
-            regulated_names=self.regulated_names,
-            C_inv=C_inv,
-            Cx=Cx,
-            Cr=Cr,  # <--- Added to assembly
-            free_Delta=free_Delta,
-            dV_precomputed=dV_precomputed,
-            device_terminals=device_terminals,
+            self.free_names,
+            self.regulated_names,
+            C_inv,
+            Cx,
+            Cr,
+            free_Delta,
+            dV_precomputed,
+            device_terminals,
         )
 
 
