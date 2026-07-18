@@ -66,11 +66,12 @@ class SinusoidalSpecs(BaseModel):
 
 class RegulatedNodeConfig(BaseModel):
     """
-    Configuration for an external regulated voltage source or ground reference.
+    Configuration for an external regulated voltage source.
     """
 
     name: str = Field(..., description="Unique name identifier of the regulated node.")
-    type: Literal["ground", "constant", "sinusoidal"] = Field(
+    # Drop "ground" from Literal
+    type: Literal["constant", "sinusoidal"] = Field(
         ..., description="The voltage behavior category."
     )
     value: float | None = Field(
@@ -85,12 +86,7 @@ class RegulatedNodeConfig(BaseModel):
     @model_validator(mode="after")
     def validate_type_requirements(self) -> "RegulatedNodeConfig":
         """Enforces field constraints based on the regulated node type."""
-        if self.type == "ground":
-            if self.value is not None or self.specs is not None:
-                raise ValueError(
-                    f"ERR_CFG_003: Regulated node '{self.name}' of type 'ground' cannot accept custom values or specs."
-                )
-        elif self.type == "constant":
+        if self.type == "constant":
             if self.value is None:
                 raise ValueError(
                     f"ERR_CFG_002: Constant source '{self.name}' requires a 'value' field."
@@ -102,7 +98,7 @@ class RegulatedNodeConfig(BaseModel):
         elif self.type == "sinusoidal":
             if self.specs is None:
                 raise ValueError(
-                    f" ERR_CFG_002: Sinusoidal source '{self.name}' requires a 'specs' configuration block."
+                    f"ERR_CFG_002: Sinusoidal source '{self.name}' requires a 'specs' configuration block."
                 )
             if self.value is not None:
                 raise ValueError(
