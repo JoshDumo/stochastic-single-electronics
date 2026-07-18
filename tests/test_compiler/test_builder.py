@@ -20,7 +20,8 @@ def test_builder_correct_assembly_and_inversion():
       free: [{"name": "out"}]
       regulated:
         - name: "gnd"
-          type: "ground"
+          type: "constant"
+          value: 0.0
         - name: "vdd"
           type: "constant"
           value: 1.0
@@ -78,7 +79,8 @@ def test_builder_raises_err_math_201_on_singular_matrix():
         - name: "isolated_node"
       regulated:
         - name: "gnd"
-          type: "ground"
+          type: "constant"
+          value: 0.0
     components:
       - type: "capacitor"
         name: "C1"

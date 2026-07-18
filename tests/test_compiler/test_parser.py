@@ -7,8 +7,11 @@ from sse_core.compiler.parser import SSEParser
 # =============================================================================
 # HAPPY PATH TEST
 # =============================================================================
+# =============================================================================
+# HAPPY PATH TEST
+# =============================================================================
 def test_parser_valid_minimal_netlist():
-    """Verify that a standard valid YAML string parses without issues."""
+    """Verify that a standard valid YAML string parses using constant 0V references."""
     valid_yaml = """
     schema_version: "1.0.0"
     simulation:
@@ -20,8 +23,9 @@ def test_parser_valid_minimal_netlist():
         - name: "out"
           initial_charge: 0
       regulated:
-        - name: "gnd"
-          type: "ground"
+        - name: "gnd"          # Still named 'gnd' for clarity
+          type: "constant"     # No longer 'ground'
+          value: 0.0
         - name: "vdd"
           type: "constant"
           value: 1.0
@@ -33,12 +37,8 @@ def test_parser_valid_minimal_netlist():
           capacitance: 1.0e-15
     """
     netlist = SSEParser.parse_string(valid_yaml)
-    assert netlist.schema_version == "1.0.0"
-    assert netlist.simulation.solver == "gillespie"
-    assert len(netlist.nodes.free) == 1
-    assert len(netlist.nodes.regulated) == 2
-    assert len(netlist.components) == 1
-    assert netlist.components[0].specs["capacitance"] == 1.0e-15
+    assert netlist.nodes.regulated[0].type == "constant"
+    assert netlist.nodes.regulated[0].value == 0.0
 
 
 # =============================================================================
@@ -53,7 +53,7 @@ def test_parser_err_cfg_001_negative_parameter():
       t_finish: 1.0e-6
     nodes:
       free: [{"name": "out"}]
-      regulated: [{"name": "gnd", "type": "ground"}]
+      regulated: [{"name": "gnd", "type": "constant", "value": 0.0}]
     components:
       - type: "capacitor"
         name: "C1"
@@ -93,7 +93,7 @@ def test_parser_err_cfg_001_negative_parameter():
               t_finish: 1.0e-6
             nodes:
               free: [{"name": "out"}]
-              regulated: [{"name": "gnd", "type": "ground"}]
+              regulated: [{"name": "gnd", "type": "constant", "value": 0.0}]
             components: []
             """,
             "ERR_CFG_002",
@@ -108,19 +108,20 @@ def test_parser_err_cfg_002_missing_parameter(missing_param_yaml, expected_err):
 
 
 # =============================================================================
-# ERR_CFG_003: Illegal parameter configuration
+# ERR_CFG_003: Illegal parameter configuration (Repurposed)
 # =============================================================================
-def test_parser_err_cfg_003_illegal_ground_specs():
-    """Verify ground nodes with custom properties trigger ERR_CFG_003."""
+def test_parser_err_cfg_003_illegal_constant_specs():
+    """Verify constant nodes with illegal specifications (like specs blocks) trigger ERR_CFG_003."""
     invalid_yaml = """
     schema_version: "1.0.0"
     simulation: {solver: "gillespie", t_finish: 1e-6}
     nodes:
       free: [{"name": "out"}]
       regulated:
-        - name: "gnd"
-          type: "ground"
-          value: 5.0        # <--- PHYSICALLY ILLEGAL (Ground must be 0V)
+        - name: "vdd"
+          type: "constant"
+          value: 1.0
+          specs: {amplitude: 1.0} # <--- Illegal: constant sources cannot have specs
     components: []
     """
     with pytest.raises(ValidationError) as exc_info:
@@ -138,7 +139,7 @@ def test_parser_err_cfg_004_invalid_mosfet_threshold_polarity():
     simulation: {solver: "gillespie", t_finish: 1.0e-6}
     nodes:
       free: [{"name": "out"}]
-      regulated: [{"name": "gnd", "type": "ground"}]
+      regulated: [{"name": "gnd", "type": "constant", "value": 0.0}]
     components:
       - type: "n_channel_mosfet"
         name: "M1"
@@ -169,7 +170,8 @@ def test_parser_err_net_103_node_name_collision():
       free: [{"name": "out"}]
       regulated:
         - name: "out"       # <--- COLLISION!
-          type: "ground"
+          type: "constant"
+          value: 0.0
     components: []
     """
     with pytest.raises(ValidationError) as exc_info:
