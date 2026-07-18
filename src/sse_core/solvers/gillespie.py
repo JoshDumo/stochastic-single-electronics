@@ -41,6 +41,7 @@ class GillespieSolver:
         self.devices = self._instantiate_device_objects()
         self.t_finish = netlist.simulation.t_finish
         self.rng = np.random.default_rng(netlist.simulation.seed)
+        self.v_th = netlist.simulation.v_th
 
     def _instantiate_device_objects(self):
         devices = []

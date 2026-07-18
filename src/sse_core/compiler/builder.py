@@ -36,9 +36,7 @@ class SSEMatrixBuilder:
 
         # Index lookup maps
         self.free_names = [node.name for node in netlist.nodes.free]
-        self.regulated_names = [
-            node.name for node in netlist.nodes.regulated if node.name != "gnd"
-        ]
+        self.regulated_names = [node.name for node in netlist.nodes.regulated]
 
         self.all_names = self.free_names + self.regulated_names
         self.name_to_idx = {name: idx for idx, name in enumerate(self.all_names)}
@@ -53,43 +51,26 @@ class SSEMatrixBuilder:
         It isolates regulated nodes and filters the ground reference to
         ensure the capacitance matrix C is non-singular and physically grounded.
         """
-        # 1. Identify ground index to exclude it from the C matrix inversion
-        gnd_idx = self.name_to_idx.get("gnd", -1)
 
         # Initialize full system matrix (N x N)
         M = np.zeros((self.N, self.N))
 
         # 2. Capacitance Matrix Compilation (Stamp capacitors)
+        # 1. Capacitance Matrix Compilation
         for comp in self.netlist.components:
             if comp.type == "capacitor":
-                nodes = comp.terminals
-
-                # Check if these strings are actually in your map
-                idx_a = self.name_to_idx.get(nodes[0])
-                idx_b = self.name_to_idx.get(nodes[1])
-
-                if idx_a is None or idx_b is None:
-                    print(f"DEBUG ERROR: Node mapping failed for {nodes}")
-                    continue
-
-                idx_a = self.name_to_idx[nodes[0]]
-                idx_b = self.name_to_idx[nodes[1]]
+                idx_a = self.name_to_idx[comp.terminals[0]]
+                idx_b = self.name_to_idx[comp.terminals[1]]
                 cap_val = comp.specs["capacitance"]
 
-                # 1. Self-capacitance stamps:
-                # If node is active, add to its diagonal.
-                # If node is ground (gnd_idx), we do nothing for that diagonal.
-                if idx_a != gnd_idx:
+                # Stamp diagonal (self-capacitance) only if node is fluctuating
+                if idx_a < self.Nf:
                     M[idx_a, idx_a] += cap_val
-                if idx_b != gnd_idx:
+                if idx_b < self.Nf:
                     M[idx_b, idx_b] += cap_val
 
-                # 2. Cross-coupling terms:
-                # If both are active, apply the -val stamp.
-                # If ONE is ground, the other is connected to the reference,
-                # so it contributes to the self-capacitance (already handled above),
-                # but NOT to the off-diagonal coupling matrix Cx.
-                if idx_a != gnd_idx and idx_b != gnd_idx:
+                # Stamp coupling
+                if idx_a < self.Nf and idx_b < self.Nf:
                     M[idx_a, idx_b] -= cap_val
                     M[idx_b, idx_a] -= cap_val
 
