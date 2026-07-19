@@ -55,26 +55,28 @@ class SSEMatrixBuilder:
         # Initialize full system matrix (N x N)
         M = np.zeros((self.N, self.N))
 
-        # 2. Capacitance Matrix Compilation (Stamp capacitors)
-        # 1. Capacitance Matrix Compilation
         for comp in self.netlist.components:
             if comp.type == "capacitor":
                 idx_a = self.name_to_idx[comp.terminals[0]]
                 idx_b = self.name_to_idx[comp.terminals[1]]
                 cap_val = comp.specs["capacitance"]
 
-                # Stamp diagonal (self-capacitance) only if node is fluctuating
+                # Stamp diagonals
                 if idx_a < self.Nf:
                     M[idx_a, idx_a] += cap_val
                 if idx_b < self.Nf:
                     M[idx_b, idx_b] += cap_val
 
-                # Stamp coupling
+                # Stamp coupling (Works for Free-Free AND Free-Regulated)
+                # We only care about the top-left (C) and top-right (Cx) blocks
                 if idx_a < self.Nf and idx_b < self.Nf:
                     M[idx_a, idx_b] -= cap_val
                     M[idx_b, idx_a] -= cap_val
+                elif idx_a < self.Nf and idx_b >= self.Nf:
+                    M[idx_a, idx_b] -= cap_val  # Fills Cx block
+                elif idx_b < self.Nf and idx_a >= self.Nf:
+                    M[idx_b, idx_a] -= cap_val  # Fills Cx block (transpose)
 
-        # 3. Partition Matrix
         # C = Floating Nodes Only (index 0 to Nf-1)
         C = M[0 : self.Nf, 0 : self.Nf]
         Cx = M[0 : self.Nf, self.Nf : self.N]
