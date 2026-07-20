@@ -47,104 +47,158 @@ class SSEMatrixBuilder:
 
     def assemble(self) -> CompiledAssembly:
         """
-        Builds the capacitance matrix using MNA rules.
-        It isolates regulated nodes and filters the ground reference to
-        ensure the capacitance matrix C is non-singular and physically grounded.
+        Assemble the full Maxwell capacitance matrix and the active-device
+        incidence matrix.
+
+        Every capacitor between nodes a and b contributes the standard stamp
+
+            +C at (a, a)
+            +C at (b, b)
+            -C at (a, b)
+            -C at (b, a)
+
+        The full matrix is then partitioned as
+
+            M = [[C,  Cx],
+                [Cx.T, Cr]]
+
+        where C corresponds to free nodes and Cr to regulated nodes.
         """
 
-        # Initialize full system matrix (N x N)
-        M = np.zeros((self.N, self.N))
+        # =====================================================================
+        # 1. Assemble the full Maxwell capacitance matrix
+        # =====================================================================
+
+        M = np.zeros((self.N, self.N), dtype=np.float64)
 
         for comp in self.netlist.components:
-            if comp.type == "capacitor":
-                idx_a = self.name_to_idx[comp.terminals[0]]
-                idx_b = self.name_to_idx[comp.terminals[1]]
-                cap_val = comp.specs["capacitance"]
+            if comp.type != "capacitor":
+                continue
 
-                # Stamp diagonals
-                if idx_a < self.Nf:
-                    M[idx_a, idx_a] += cap_val
-                if idx_b < self.Nf:
-                    M[idx_b, idx_b] += cap_val
+            node_a, node_b = comp.terminals
+            idx_a = self.name_to_idx[node_a]
+            idx_b = self.name_to_idx[node_b]
+            capacitance = float(comp.specs["capacitance"])
 
-                # Stamp coupling (Works for Free-Free AND Free-Regulated)
-                # We only care about the top-left (C) and top-right (Cx) blocks
-                if idx_a < self.Nf and idx_b < self.Nf:
-                    M[idx_a, idx_b] -= cap_val
-                    M[idx_b, idx_a] -= cap_val
-                elif idx_a < self.Nf and idx_b >= self.Nf:
-                    M[idx_a, idx_b] -= cap_val  # Fills Cx block
-                elif idx_b < self.Nf and idx_a >= self.Nf:
-                    M[idx_b, idx_a] -= cap_val  # Fills Cx block (transpose)
+            if capacitance < 0.0:
+                raise ValueError(
+                    f"ERR_MATH_202: Capacitor '{comp.name}' has negative "
+                    f"capacitance {capacitance}."
+                )
 
-        # C = Floating Nodes Only (index 0 to Nf-1)
-        C = M[0 : self.Nf, 0 : self.Nf]
-        Cx = M[0 : self.Nf, self.Nf : self.N]
-        Cr = M[self.Nf : self.N, self.Nf : self.N]
+            # Complete symmetric capacitor stamp.
+            M[idx_a, idx_a] += capacitance
+            M[idx_b, idx_b] += capacitance
+            M[idx_a, idx_b] -= capacitance
+            M[idx_b, idx_a] -= capacitance
 
-        try:
-            if np.linalg.cond(C) > 1 / np.finfo(float).eps:
-                raise np.linalg.LinAlgError("Singular matrix")
-            C_inv = np.linalg.inv(C)
-        except np.linalg.LinAlgError as e:
-            raise ValueError(
-                "ERR_MATH_201: The free capacitance matrix C is singular or uninvertible. "
-                "Ensure your circuit does not contain completely isolated node islands."
-            ) from e
+        # This should be guaranteed by the capacitor-stamping operation.
+        if not np.allclose(M, M.T, rtol=1e-13, atol=1e-30):
+            raise RuntimeError(
+                "ERR_MATH_203: The assembled capacitance matrix is not symmetric."
+            )
+
+        # Partition the full matrix:
+        #
+        #     M = [[C,    Cx],
+        #          [Cx.T, Cr]]
+        #
+        C = M[: self.Nf, : self.Nf].copy()
+        Cx = M[: self.Nf, self.Nf :].copy()
+        Cr = M[self.Nf :, self.Nf :].copy()
+
+        # Invert the free-node capacitance block.
+        if self.Nf == 0:
+            C_inv = np.empty((0, 0), dtype=np.float64)
+        else:
+            try:
+                condition_number = np.linalg.cond(C)
+
+                if (
+                    not np.isfinite(condition_number)
+                    or condition_number >= 1.0 / np.finfo(float).eps
+                ):
+                    raise np.linalg.LinAlgError("Singular or ill-conditioned matrix")
+
+                C_inv = np.linalg.inv(C)
+
+            except np.linalg.LinAlgError as exc:
+                raise ValueError(
+                    "ERR_MATH_201: The free-node capacitance matrix C is "
+                    "singular or uninvertible. Ensure every free-node island "
+                    "has a capacitive connection to the rest of the circuit."
+                ) from exc
 
         # =====================================================================
-        # 2. Compile Active Device Incidence Matrix (free_Delta)
+        # 2. Compile the active-device incidence matrix
         # =====================================================================
-        # Identify active components
 
-        # 4. Compile Active Device Incidence Matrix (free_Delta)
         active_comps = [
-            c
-            for c in self.netlist.components
-            if c.type
-            in ["tunnel_junction", "n_channel_mosfet", "p_channel_mosfet", "diode"]
+            comp
+            for comp in self.netlist.components
+            if comp.type
+            in [
+                "tunnel_junction",
+                "n_channel_mosfet",
+                "p_channel_mosfet",
+                "diode",
+            ]
         ]
-        Nd = len(active_comps)
-        free_Delta = np.zeros((self.Nf, Nd))
-        device_terminals = []
-        dV_precomputed = np.zeros(Nd)
 
-        for d, comp in enumerate(active_comps):
-            idx_drain = self.name_to_idx[
-                comp.terminals.drain
-                if hasattr(comp.terminals, "drain")
-                else comp.terminals[0]
-            ]
-            idx_source = self.name_to_idx[
-                comp.terminals.source
-                if hasattr(comp.terminals, "source")
-                else comp.terminals[1]
-            ]
+        number_of_devices = len(active_comps)
+
+        free_Delta = np.zeros(
+            (self.Nf, number_of_devices),
+            dtype=np.float64,
+        )
+
+        device_terminals: list[tuple[int, int]] = []
+
+        dV_precomputed = np.zeros(
+            number_of_devices,
+            dtype=np.float64,
+        )
+
+        for device_index, comp in enumerate(active_comps):
+            if hasattr(comp.terminals, "drain"):
+                drain_name = comp.terminals.drain
+                source_name = comp.terminals.source
+            else:
+                drain_name = comp.terminals[0]
+                source_name = comp.terminals[1]
+
+            idx_drain = self.name_to_idx[drain_name]
+            idx_source = self.name_to_idx[source_name]
 
             device_terminals.append((idx_drain, idx_source))
 
-            # Electron tunneling direction (standard positive = A to B)
+            # Native simulator convention:
+            # a positive transition moves one electron from drain to source.
             if idx_drain < self.Nf:
-                free_Delta[idx_drain, d] += 1.0
-            if idx_source < self.Nf:
-                free_Delta[idx_source, d] -= 1.0
+                free_Delta[idx_drain, device_index] += 1.0
 
-            # Compute dV jump across the device terminals
+            if idx_source < self.Nf:
+                free_Delta[idx_source, device_index] -= 1.0
+
+            # Preserve the existing precomputation behaviour in this patch.
             if self.Nf > 0:
-                dV_free = C_inv @ free_Delta[:, d]
-                v_a = dV_free[idx_drain] if idx_drain < self.Nf else 0.0
-                v_b = dV_free[idx_source] if idx_source < self.Nf else 0.0
-                dV_precomputed[d] = v_a - v_b
+                dV_free = C_inv @ free_Delta[:, device_index]
+
+                v_drain = dV_free[idx_drain] if idx_drain < self.Nf else 0.0
+
+                v_source = dV_free[idx_source] if idx_source < self.Nf else 0.0
+
+                dV_precomputed[device_index] = v_drain - v_source
 
         return CompiledAssembly(
-            self.free_names,
-            self.regulated_names,
-            C_inv,
-            Cx,
-            Cr,
-            free_Delta,
-            dV_precomputed,
-            device_terminals,
+            free_names=self.free_names,
+            regulated_names=self.regulated_names,
+            C_inv=C_inv,
+            Cx=Cx,
+            Cr=Cr,
+            free_Delta=free_Delta,
+            dV_precomputed=dV_precomputed,
+            device_terminals=device_terminals,
         )
 
 
