@@ -40,7 +40,7 @@ def mosfet_rates(
         v_sd = -v_ds
 
         # PMOS dominant electron flow is Drain -> Source (Conventional S->D)
-        rate_D_to_S = (i0 / qe) * np.exp((v_sg - vt) / (n * v_th))
+        rate_D_to_S = (i0 / qe) * np.exp((v_sg + vt) / (n * v_th))
         rate_S_to_D = rate_D_to_S * np.exp(-v_sd / v_th)
 
         # Return (Source->Drain, Drain->Source)
