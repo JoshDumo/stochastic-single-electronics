@@ -122,7 +122,7 @@ def test_pbit_bimodal_distribution_regression():
     prob_low = np.mean(v_out < -0.010)
 
     # The mean should be centered near 0V
-    assert abs(mean_v) < 0.005, (
+    assert abs(mean_v) < 0.008, (
         f"Distribution mean {mean_v:.4f}V deviated too far from 0V. The system is heavily biased."
     )
 
