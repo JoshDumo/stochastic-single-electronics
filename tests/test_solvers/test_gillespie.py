@@ -3,6 +3,9 @@ import pytest
 from sse_core.compiler.builder import SSECompiler
 from sse_core.compiler.parser import SSEParser
 from sse_core.compiler.units import E_CHARGE
+from sse_core.devices.semiconductor import (
+    grounded_body_mosfet_rates,
+)
 from sse_core.solvers.gillespie import GillespieSolver
 
 
@@ -484,3 +487,194 @@ def test_gillespie_max_steps_guard():
     # Assert we did not run into an infinite loop and capped transitions exactly
     # 1 initial state + 5 transition steps = 6 recorded points
     assert len(history["time"]) <= 6
+
+
+def test_solver_uses_grounded_body_mosfet_rates():
+    """
+    A MOSFET with bulk != source must use the grounded-body kernel,
+    including direction-specific midpoint voltages for embedded rates.
+    """
+
+    v_thermal = 0.026
+    v_threshold = 4.0 * v_thermal
+    i0 = 1.0e-12
+
+    circuit_yaml = f"""
+    schema_version: "1.0.0"
+
+    simulation:
+      solver: "gillespie"
+      t_finish: 1.0e-9
+      v_th: {v_thermal}
+      seed: 42
+
+    nodes:
+      free:
+        - name: "out"
+
+      regulated:
+        - name: "gate"
+          type: "constant"
+          value: {1.4 * v_thermal}
+
+        - name: "source"
+          type: "constant"
+          value: {-0.2 * v_thermal}
+
+        - name: "bulk"
+          type: "constant"
+          value: 0.0
+
+    components:
+      - type: "capacitor"
+        name: "Cout"
+        terminals: ["out", "bulk"]
+        specs:
+          capacitance: 1.0e-16
+
+      - type: "n_channel_mosfet"
+        name: "bias_nmos"
+        terminals:
+          drain: "out"
+          gate: "gate"
+          source: "source"
+          bulk: "bulk"
+        specs:
+          I0: {i0}
+          VT: {v_threshold}
+          n: 1.0
+    """
+
+    netlist = SSEParser.parse_string(circuit_yaml)
+    assembly = SSECompiler.compile_string(circuit_yaml)
+    solver = GillespieSolver(netlist, assembly)
+
+    regulated_values = {node.name: node.value for node in netlist.nodes.regulated}
+
+    vr = np.asarray(
+        [regulated_values[name] for name in assembly.regulated_names],
+        dtype=np.float64,
+    )
+
+    q = np.array([0], dtype=np.int64)
+
+    component = solver.active_components[0]
+    device = solver.devices[0]
+
+    assert component.terminals.bulk != component.terminals.source
+    assert solver._uses_grounded_body_model(component)
+
+    # Fixed-state kernel selection.
+    potentials = solver.compute_node_potentials(q, vr)
+
+    actual_forward, actual_reverse, _ = solver.compute_all_rates(potentials)
+
+    expected_forward, expected_reverse = grounded_body_mosfet_rates(
+        potentials[component.terminals.drain],
+        potentials[component.terminals.gate],
+        potentials[component.terminals.source],
+        potentials[component.terminals.bulk],
+        device.i0,
+        device.vt,
+        device.n,
+        device.v_th,
+        device.is_pmos,
+    )
+
+    np.testing.assert_allclose(
+        actual_forward[0],
+        expected_forward,
+        rtol=1.0e-12,
+        atol=0.0,
+    )
+
+    np.testing.assert_allclose(
+        actual_reverse[0],
+        expected_reverse,
+        rtol=1.0e-12,
+        atol=0.0,
+    )
+
+    # Embedded midpoint evaluation.
+    free_delta = np.rint(assembly.free_Delta[:, 0]).astype(np.int64)
+
+    potentials_forward = solver.compute_node_potentials(
+        q + free_delta,
+        vr,
+    )
+
+    potentials_reverse = solver.compute_node_potentials(
+        q - free_delta,
+        vr,
+    )
+
+    def midpoint(after, terminal):
+        return 0.5 * (potentials[terminal] + after[terminal])
+
+    expected_embedded_forward = grounded_body_mosfet_rates(
+        midpoint(
+            potentials_forward,
+            component.terminals.drain,
+        ),
+        midpoint(
+            potentials_forward,
+            component.terminals.gate,
+        ),
+        midpoint(
+            potentials_forward,
+            component.terminals.source,
+        ),
+        midpoint(
+            potentials_forward,
+            component.terminals.bulk,
+        ),
+        device.i0,
+        device.vt,
+        device.n,
+        device.v_th,
+        device.is_pmos,
+    )[0]
+
+    expected_embedded_reverse = grounded_body_mosfet_rates(
+        midpoint(
+            potentials_reverse,
+            component.terminals.drain,
+        ),
+        midpoint(
+            potentials_reverse,
+            component.terminals.gate,
+        ),
+        midpoint(
+            potentials_reverse,
+            component.terminals.source,
+        ),
+        midpoint(
+            potentials_reverse,
+            component.terminals.bulk,
+        ),
+        device.i0,
+        device.vt,
+        device.n,
+        device.v_th,
+        device.is_pmos,
+    )[1]
+
+    (
+        embedded_forward,
+        embedded_reverse,
+        _,
+    ) = solver.compute_embedded_rates(q, vr)
+
+    np.testing.assert_allclose(
+        embedded_forward[0],
+        expected_embedded_forward,
+        rtol=1.0e-12,
+        atol=0.0,
+    )
+
+    np.testing.assert_allclose(
+        embedded_reverse[0],
+        expected_embedded_reverse,
+        rtol=1.0e-12,
+        atol=0.0,
+    )
