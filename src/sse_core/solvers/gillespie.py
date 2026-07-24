@@ -1,14 +1,19 @@
 # src/sse_core/solvers/gillespie.py
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from numba import njit
 from sse_core.compiler.builder import CompiledAssembly
+from sse_core.compiler.models import MOSFETTerminals
 from sse_core.compiler.parser import CircuitNetlist
 from sse_core.compiler.units import E_CHARGE
 from sse_core.devices.mapping import extract_device_voltages
 from sse_core.devices.passive import TunnelJunction
-from sse_core.devices.semiconductor import MOSFET, Diode
+from sse_core.devices.semiconductor import (
+    MOSFET,
+    Diode,
+    grounded_body_mosfet_rates,
+)
 
 
 @njit(cache=True)
@@ -249,6 +254,73 @@ class GillespieSolver:
 
         return electrostatic_energy - source_coupling
 
+    def _uses_grounded_body_model(
+        self,
+        component,
+    ) -> bool:
+        """
+        Return True when a MOSFET body is not tied to its source.
+        """
+
+        return bool(
+            component.type
+            in [
+                "n_channel_mosfet",
+                "p_channel_mosfet",
+            ]
+            and component.terminals.bulk != component.terminals.source
+        )
+
+    def _fixed_voltage_device_rates(
+        self,
+        device_index: int,
+        potentials: dict[str, float],
+    ) -> tuple[float, float]:
+        """
+        Evaluate one device at a fixed set of node potentials.
+        """
+
+        device = self.devices[device_index]
+        component = self.active_components[device_index]
+
+        if self._uses_grounded_body_model(component):
+            terminals = cast(
+                MOSFETTerminals,
+                component.terminals,
+            )
+
+            return grounded_body_mosfet_rates(
+                potentials[terminals.drain],
+                potentials[terminals.gate],
+                potentials[terminals.source],
+                potentials[terminals.bulk],
+                device.i0,
+                device.vt,
+                device.n,
+                device.v_th,
+                device.is_pmos,
+            )
+
+        v_active, v_control = extract_device_voltages(
+            component,
+            potentials,
+        )
+
+        return (
+            float(
+                device.forward_rate(
+                    v_active,
+                    v_control,
+                )
+            ),
+            float(
+                device.reverse_rate(
+                    v_active,
+                    v_control,
+                )
+            ),
+        )
+
     def compute_all_rates(
         self,
         potentials: dict[str, float],
@@ -277,14 +349,13 @@ class GillespieSolver:
         for device_index, (device, component) in enumerate(
             zip(self.devices, self.active_components)
         ):
-            v_active, v_control = extract_device_voltages(
-                component,
+            forward_rate, reverse_rate = self._fixed_voltage_device_rates(
+                device_index,
                 potentials,
             )
 
-            forward_rate = float(device.forward_rate(v_active, v_control))
-
-            reverse_rate = float(device.reverse_rate(v_active, v_control))
+            forward_rate = float(forward_rate)
+            reverse_rate = float(reverse_rate)
 
             if not np.isfinite(forward_rate) or forward_rate < 0.0:
                 raise RuntimeError(
@@ -392,55 +463,127 @@ class GillespieSolver:
                 vr,
             )
 
-            (
-                v_active_before,
-                v_control_before,
-            ) = extract_device_voltages(
-                component,
-                potentials_before,
-            )
-
-            (
-                v_active_after_forward,
-                v_control_after_forward,
-            ) = extract_device_voltages(
-                component,
-                potentials_after_forward,
-            )
-
-            (
-                v_active_after_reverse,
-                v_control_after_reverse,
-            ) = extract_device_voltages(
-                component,
-                potentials_after_reverse,
-            )
-
-            v_active_forward_midpoint = 0.5 * (v_active_before + v_active_after_forward)
-
-            v_control_forward_midpoint = 0.5 * (
-                v_control_before + v_control_after_forward
-            )
-
-            v_active_reverse_midpoint = 0.5 * (v_active_before + v_active_after_reverse)
-
-            v_control_reverse_midpoint = 0.5 * (
-                v_control_before + v_control_after_reverse
-            )
-
-            forward_rate = float(
-                device.forward_rate(
-                    v_active_forward_midpoint,
-                    v_control_forward_midpoint,
+            if self._uses_grounded_body_model(component):
+                terminals = cast(
+                    MOSFETTerminals,
+                    component.terminals,
                 )
-            )
 
-            reverse_rate = float(
-                device.reverse_rate(
-                    v_active_reverse_midpoint,
-                    v_control_reverse_midpoint,
+                def midpoint(
+                    after_potentials,
+                    terminal_name,
+                ):
+                    return 0.5 * (
+                        potentials_before[terminal_name]
+                        + after_potentials[terminal_name]
+                    )
+
+                forward_midpoint_rates = grounded_body_mosfet_rates(
+                    midpoint(
+                        potentials_after_forward,
+                        terminals.drain,
+                    ),
+                    midpoint(
+                        potentials_after_forward,
+                        terminals.gate,
+                    ),
+                    midpoint(
+                        potentials_after_forward,
+                        terminals.source,
+                    ),
+                    midpoint(
+                        potentials_after_forward,
+                        terminals.bulk,
+                    ),
+                    device.i0,
+                    device.vt,
+                    device.n,
+                    device.v_th,
+                    device.is_pmos,
                 )
-            )
+
+                reverse_midpoint_rates = grounded_body_mosfet_rates(
+                    midpoint(
+                        potentials_after_reverse,
+                        terminals.drain,
+                    ),
+                    midpoint(
+                        potentials_after_reverse,
+                        terminals.gate,
+                    ),
+                    midpoint(
+                        potentials_after_reverse,
+                        terminals.source,
+                    ),
+                    midpoint(
+                        potentials_after_reverse,
+                        terminals.bulk,
+                    ),
+                    device.i0,
+                    device.vt,
+                    device.n,
+                    device.v_th,
+                    device.is_pmos,
+                )
+
+                forward_rate = float(forward_midpoint_rates[0])
+
+                reverse_rate = float(reverse_midpoint_rates[1])
+
+            else:
+                (
+                    v_active_before,
+                    v_control_before,
+                ) = extract_device_voltages(
+                    component,
+                    potentials_before,
+                )
+
+                (
+                    v_active_after_forward,
+                    v_control_after_forward,
+                ) = extract_device_voltages(
+                    component,
+                    potentials_after_forward,
+                )
+
+                (
+                    v_active_after_reverse,
+                    v_control_after_reverse,
+                ) = extract_device_voltages(
+                    component,
+                    potentials_after_reverse,
+                )
+
+                v_active_forward_midpoint = 0.5 * (
+                    v_active_before + v_active_after_forward
+                )
+
+                v_control_forward_midpoint = 0.5 * (
+                    v_control_before + v_control_after_forward
+                )
+
+                v_active_reverse_midpoint = 0.5 * (
+                    v_active_before + v_active_after_reverse
+                )
+
+                v_control_reverse_midpoint = 0.5 * (
+                    v_control_before + v_control_after_reverse
+                )
+
+                forward_rate = float(
+                    device.forward_rate(
+                        v_active_forward_midpoint,
+                        v_control_forward_midpoint,
+                    )
+                )
+
+                reverse_rate = float(
+                    device.reverse_rate(
+                        v_active_reverse_midpoint,
+                        v_control_reverse_midpoint,
+                    )
+                )
 
             if not np.isfinite(forward_rate) or forward_rate < 0.0:
                 raise RuntimeError(

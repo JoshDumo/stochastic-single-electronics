@@ -55,6 +55,59 @@ def mosfet_rates(
         return max(0.0, rate_S_to_D), max(0.0, rate_D_to_S)
 
 
+@njit(cache=True)
+def grounded_body_mosfet_rates(
+    v_d: float,
+    v_g: float,
+    v_s: float,
+    v_b: float,
+    i0: float,
+    vt: float,
+    n: float,
+    v_th: float,
+    is_pmos: bool,
+) -> tuple[float, float]:
+    """
+    Poisson rates for a MOSFET whose body is not tied to its source.
+
+    The returned directions follow the simulator convention:
+
+        forward: source -> drain electron transfer
+        reverse: drain -> source electron transfer
+
+    The rate ratio always satisfies
+
+        log(forward / reverse) = (v_d - v_s) / v_th.
+
+    Threshold convention:
+        nMOS: vt > 0
+        pMOS: vt < 0
+    """
+
+    qe = E_CHARGE
+
+    if is_pmos:
+        # Voltage-inverted counterpart of the grounded-body nMOS.
+        # Because vt is negative, "+ vt" subtracts |vt|.
+        prefactor = i0 / qe * np.exp((v_b - v_g + vt) / (n * v_th))
+
+        forward_rate = prefactor * np.exp((v_d - v_b) / v_th)
+
+        reverse_rate = prefactor * np.exp((v_s - v_b) / v_th)
+
+    else:
+        prefactor = i0 / qe * np.exp((v_g - v_b - vt) / (n * v_th))
+
+        forward_rate = prefactor * np.exp(-(v_s - v_b) / v_th)
+
+        reverse_rate = prefactor * np.exp(-(v_d - v_b) / v_th)
+
+    return (
+        max(0.0, forward_rate),
+        max(0.0, reverse_rate),
+    )
+
+
 # =============================================================================
 # 3. Object-Oriented Device Classes
 # =============================================================================
